@@ -1,0 +1,1 @@
+from science_parser.agregators.crossref.indexator import CrossrefAgregatorClient

@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "science_parser"
+version = "0.1.0"
+dependencies = [
+    "jmespath",
+    "requests",
+    "yarl",
+    "tenacity",
+    "streamlit==1.62.0",
+    "filetype"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
