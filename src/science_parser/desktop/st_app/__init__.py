@@ -1,0 +1,1 @@
+from science_parser.desktop.st_app.launcher import run_launcher

@@ -1,117 +1,101 @@
-import os
-import json
+import sys
+import time
+import atexit
+import socket
+import threading
+import subprocess
 from pathlib import Path
 
-import streamlit as st
-from pandas import DataFrame
+import webview
 
-from science_parser.core.licenses.manager import LICENSE_FILE_PATH
 
-# FUNCTIONS
 
-def file_dialog():
-    import tkinter as tk
-    from tkinter import filedialog
+def get_free_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('', 0))
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        return s.getsockname()[1]
 
-    root = tk.Tk()
-    root.withdraw()
-    root.attributes('-topmost', True)
+
+def wait_for_port(port, host='127.0.0.1', timeout=30.0):
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            with socket.create_connection((host, port), timeout=1.0):
+                return True
+        except (ConnectionRefusedError, OSError):
+            time.sleep(0.3)
+    return False
+
+
+def cleanup():
+    global process
+    if process is not None and process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            process.kill()
+
+
+def setup_signal_handlers():
+    if threading.current_thread() is threading.main_thread():
+        try:
+            import signal
+            def signal_handler(sig, frame):
+                sys.exit(0)
+            signal.signal(signal.SIGINT, signal_handler)
+            signal.signal(signal.SIGTERM, signal_handler)
+        except (ValueError, OSError):
+            pass
+
+
+setup_signal_handlers()
+
+atexit.register(cleanup)
+
+
+process = None
+
+def run_launcher(script_folder: str | Path):
+    global process
     
-    # Открываем диалог выбора папки
-    file_path = filedialog.askopenfilename(
-        title="Выберите файл лицензий",
-        initialdir=Path.cwd(),
-        filetypes=(("Json файлы", "*.json"), ("Все файлы", "*.*"))
-    )
+    port = get_free_port()
+
+    script_folder = Path(script_folder)
+    script_path = script_folder / "launcher_page.py"
+
+    if sys.platform == 'win32':
+        icon_path = script_folder / "static/logo.ico"
+    elif sys.platform == 'darwin':
+        icon_path = script_folder / "static/logo.icns"
+    else:
+        icon_path = script_folder / "static/logo.png"
+        
+
+    cmd = [
+        sys.executable, "-m", "streamlit", "run", script_path,
+        "--server.headless", "true",
+        "--server.port", str(port),
+        "--server.address", "127.0.0.1"
+    ]
+
+    log_file = open("streamlit.log", "w", encoding="utf-8")
+    process = subprocess.Popen(cmd, 
+                            #    stdout=subprocess.DEVNULL, 
+                            #    stderr=subprocess.STDOUT, 
+                               stdout=log_file,
+                               stderr=log_file)
+
+    if not wait_for_port(port):
+        log_file.close()
+        print("Streamlit не запустился вовремя. Смотрите streamlit.log")
+        process.kill()
+        sys.exit(1)
     
-    root.destroy()
-    return file_path
+        log_file.close()
 
-
-def validate_license_file(path: Path):
-
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            s = f.read()
-    except Exception as e:
-        return False, "Не удалось открыть файл"
-
-    try:
-        ll = json.loads(s)
-    except Exception as e:
-        return False, "Некорректный JSON"
-
-    if not isinstance(ll, (list, tuple)):
-        return False, "Файл должен содержать только список лицензий"
-
-    if len(ll) == 0:
-        return False, "Список лицензий пустой"
-
-    return True, "ok"
-
+    url = f"http://localhost:{port}"
     
-
-
-# DIALOG FUNCTIONS
-
-@st.dialog("Лицензий")
-def license_settings():
-    st.write("Экспорт лицензий")
-    with open(LICENSE_FILE_PATH, "rb") as f:
-        file = f.read()
-    st.download_button(label="Экспорт", data=file, file_name="licenses.json", mime="application/json")
-
-    use_build_in = st.checkbox("Использовать встроенные лицензии", value=True)
-
-    if not use_build_in:
-        st.write("Импорт лицензий") 
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Открыть..."):
-                file_path = Path(file_dialog())
-
-                status, msg = validate_license_file(file_path)
-                with col2:
-                    if status:
-                        st.success("Успешно!")
-                        os.environ["NEUROLINGV_LICENSES_FILE"] = str(file_path)
-                    else: 
-                        st.error(msg)
-    if st.button("Готово"):
-        st.rerun()
-
-
-@st.dialog("Конфигурация LLM")
-def llm_settings():
-    df = DataFrame(
-        [
-            {"Endpoint": "http://127.0.0.1:8000/v1", "Название модели": "Model name", "API токен": "your-api-key-here"}
-        ]
-    )
-    edited_df = st.data_editor(df)
-
-    st.write(edited_df)
-
-    if st.button("Готово"):
-        st.rerun()
-
-
-#  INTERFACE
-
-
-st.markdown("# Индексатор научных публикаций\n#### Лаунчер")
-
-if st.button("Запустить :material/play_circle:"):
-    st.switch_page("pages/menu_page.py")
-
-
-_, col_f, col_s, _ = st.columns(4)
-
-
-with col_f:
-    if st.button("Настроить лицензии"):
-        license_settings()
-
-with col_s:
-    if st.button("Настроить LLM"):
-        llm_settings()
+    webview.create_window('Индексатор научных публикаций', url, width=1024, height=768)
+    webview.start(icon=str(icon_path) if icon_path else None)
