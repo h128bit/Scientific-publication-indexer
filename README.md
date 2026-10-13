@@ -24,6 +24,6 @@ cd Scientific-publication-indexer
 ```
 ```bash
 pip install -e .
-python .\src\science_parser\desktop\main.py 
+python ./src/science_parser/desktop/main.py 
 ```
 
