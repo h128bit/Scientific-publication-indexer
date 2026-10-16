@@ -1,6 +1,0 @@
-jmespath
-requests
-yarl
-tenacity
-streamlit==1.62.0
-filetype
