@@ -6,8 +6,10 @@ import threading
 import subprocess
 from pathlib import Path
 
-import webview
+import truststore
+truststore.inject_into_ssl()
 
+import webview
 
 
 def get_free_port():
@@ -67,35 +69,40 @@ def run_launcher(script_folder: str | Path):
 
     if sys.platform == 'win32':
         icon_path = script_folder / "static/logo.ico"
+        gui_engine = 'edgechromium'
     elif sys.platform == 'darwin':
         icon_path = script_folder / "static/logo.icns"
+        gui_engine = 'cocoa'
     else:
         icon_path = script_folder / "static/logo.png"
-        
+        gui_engine = 'gtk'
 
     cmd = [
-        sys.executable, "-m", "streamlit", "run", script_path,
-        "--server.headless", "true",
-        "--server.port", str(port),
-        "--server.address", "127.0.0.1"
+        sys.executable, 
+        "__run_streamlit__", 
+        str(script_path), 
+        str(port)
     ]
 
-    log_file = open("streamlit.log", "w", encoding="utf-8")
+    log_file_path = Path("streamlit.log")
+    log_file = open(log_file_path, "w", encoding="utf-8")
+
     process = subprocess.Popen(cmd, 
-                            #    stdout=subprocess.DEVNULL, 
-                            #    stderr=subprocess.STDOUT, 
                                stdout=log_file,
-                               stderr=log_file)
+                               stderr=subprocess.STDOUT, 
+                               text=True,
+                               encoding='utf-8'
+                               )
 
     if not wait_for_port(port):
-        log_file.close()
         print("Streamlit не запустился вовремя. Смотрите streamlit.log")
         process.kill()
+        log_file.close()
         sys.exit(1)
     
-        log_file.close()
+    log_file.close()
 
     url = f"http://localhost:{port}"
     
     webview.create_window('Индексатор научных публикаций', url, width=1024, height=768)
-    webview.start(icon=str(icon_path) if icon_path else None)
+    webview.start(gui=gui_engine, icon=str(icon_path) if icon_path else None)

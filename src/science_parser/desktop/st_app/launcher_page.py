@@ -74,7 +74,7 @@ def license_settings():
                 with col2:
                     if status:
                         st.success("Успешно!")
-                        os.environ["NEUROLINGV_LICENSES_FILE"] = str(file_path)
+                        os.environ["SCIPARSER_LICENSES_FILE"] = str(file_path)
                     else: 
                         st.error(msg)
     if st.button("Готово"):

@@ -87,6 +87,7 @@ if st.button("Выгрузить"):
             status.update(label=f"Завершено! скачено файлов: {counter}", state="complete")
 
     except Exception as e:
+        st.text(e) ## <--- dell
         st.json(article_loader.status)
 
 

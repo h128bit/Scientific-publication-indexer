@@ -1,4 +1,9 @@
 Untitled-*
+.venv_linux/
+
+*.spec
+!pyinstaller-build_1.spec
+
 
 __pycache__/
 *.py[codz]
@@ -28,7 +33,6 @@ share/python-wheels/
 MANIFEST
 
 *.manifest
-*.spec
 
 # Installer logs
 pip-log.txt

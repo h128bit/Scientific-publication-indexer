@@ -10,10 +10,20 @@ dependencies = [
     "requests",
     "yarl",
     "tenacity",
-    "streamlit==1.62.0",
     "filetype",
-    "pywebview==6.2.1"
+    "streamlit==1.62.0",
+    "pywebview==6.2.1",
+    "tkinter",
+    "certifi",
+    "truststore",
+    "pip-system-certs"
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[project.optional-dependencies]
+build = [
+    "pyinstaller",
+    "cffi"
+]
