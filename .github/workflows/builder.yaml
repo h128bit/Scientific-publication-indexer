@@ -110,7 +110,7 @@ jobs:
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
-          name: linux-build
+          name: linux-build   
           path: ScienceIndexer-linux.tar.gz
           if-no-files-found: error
 
