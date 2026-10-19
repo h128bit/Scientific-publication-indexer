@@ -77,12 +77,22 @@ def run_launcher(script_folder: str | Path):
         icon_path = script_folder / "static/logo.png"
         gui_engine = 'gtk'
 
-    cmd = [
-        sys.executable, 
-        "__run_streamlit__", 
-        str(script_path), 
-        str(port)
-    ]
+    if getattr(sys, "frozen", False):
+        cmd = [
+            sys.executable, 
+            "__run_streamlit__", 
+            str(script_path), 
+            str(port)
+        ]
+    else:
+        main_py_path = str(Path(__file__).parent.parent / "main.py")
+        cmd = [
+            sys.executable, 
+            main_py_path,
+            "__run_streamlit__", 
+            str(script_path), 
+            str(port)
+        ]
 
     log_file_path = Path("streamlit.log")
     log_file = open(log_file_path, "w", encoding="utf-8")

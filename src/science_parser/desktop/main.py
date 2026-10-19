@@ -18,6 +18,8 @@ if __name__ == "__main__":
         script_path = sys.argv[2]
         port = sys.argv[3]
 
+        print(script_path)
+
         sys.argv = [
             "streamlit", "run", script_path,
             "--server.headless", "true",
@@ -35,5 +37,5 @@ if __name__ == "__main__":
         root = get_base_path()
         os.environ["_inner_SCIPARSER_ROOT"] = str(root)
         script_path = root / "science_parser/desktop/st_app"
-        
+
         run_launcher(str(script_path))

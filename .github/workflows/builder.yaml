@@ -1,0 +1,143 @@
+name: Build and Release (Windows + Linux)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # ============================================================
+  # 1. Сборка Windows-версии (.exe)
+  # ============================================================
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install project and dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[build]"
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --clean --noconfirm pyinstaller-build_1.spec
+
+      - name: List dist folder (debug)
+        run: dir dist
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: dist/ScienceIndexer.exe
+          if-no-files-found: error
+
+  # ============================================================
+  # 2. Сборка Linux-версии (для Astra Linux Orel 2.12)
+  # ============================================================
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install system dependencies (tkinter + X11)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-tk \
+            tk \
+            libx11-6 \
+            libxrender1 \
+            libxext6 \
+            libxfixes3 \
+            libxcursor1 \
+            libxi6 \
+            libxcomposite1 \
+            libxrandr2 \
+            libxxf86vm1 \
+            libxinerama1
+
+      - name: Install project and dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[build]"
+
+      - name: Verify tkinter availability
+        run: python -c "import tkinter; print('tkinter OK:', tkinter.TkVersion)"
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --clean --noconfirm pyinstaller-build_1.spec
+
+      - name: List dist folder (debug)
+        run: ls -la dist/
+
+      - name: Pack Linux binary into tar.gz
+        run: |
+          cd dist
+          tar -czf ../ScienceIndexer-linux.tar.gz ScienceIndexer
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: ScienceIndexer-linux.tar.gz
+          if-no-files-found: error
+
+  # ============================================================
+  # 3. Создание релиза и загрузка обоих бинарников
+  # ============================================================
+  create-release:
+    name: Create Release
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+          path: release-assets/
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build
+          path: release-assets/
+
+      - name: List release assets
+        run: ls -la release-assets/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-assets/ScienceIndexer.exe
+            release-assets/ScienceIndexer-linux.tar.gz
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
