@@ -48,26 +48,19 @@ jobs:
   # ============================================================
   # 2. Сборка Linux-версии (для Astra Linux Orel 2.12)
   # ============================================================
-  build-linux:
+    build-linux:
     name: Build Linux
-    runs-on: ubuntu-latest # Быстрый и стабильный раннер без очередей
+    runs-on: ubuntu-latest
     container:
-      image: ubuntu:20.04  # Но сборка идет внутри старого окружения с нужным glibc!
+      image: ubuntu:20.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install system dependencies (Python 3.12 + tkinter + X11)
+      - name: Install system dependencies (tkinter + X11)
         run: |
           apt-get update
-          # Добавляем репозиторий deadsnakes для Python 3.12 на Ubuntu 20.04
-          apt-get install -y software-properties-common
-          add-apt-repository -y ppa:deadsnakes/ppa
-          apt-get update
           apt-get install -y \
-            python3.12 \
-            python3.12-venv \
-            python3.12-dev \
             python3-tk \
             tk \
             libx11-6 \
@@ -79,21 +72,47 @@ jobs:
             libxcomposite1 \
             libxrandr2 \
             libxxf86vm1 \
-            libxinerama1
+            libxinerama1 \
+            software-properties-common \
+            curl
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
+      - name: Install Python 3.12 from source
+        run: |
+          # Скачиваем и компилируем Python 3.12 (так как в Ubuntu 20.04 его нет в пакетах)
+          apt-get install -y \
+            build-essential \
+            zlib1g-dev \
+            libncurses5-dev \
+            libgdbm-dev \
+            libnss3-dev \
+            libssl-dev \
+            libreadline-dev \
+            libffi-dev \
+            libsqlite3-dev \
+            libbz2-dev \
+            liblzma-dev
+          
+          cd /tmp
+          curl -O https://www.python.org/ftp/python/3.12.0/Python-3.12.0.tgz
+          tar -xzf Python-3.12.0.tgz
+          cd Python-3.12.0
+          ./configure --enable-optimizations --with-tcltk-includes='-I/usr/include/tcl8.6' --with-tcltk-libs='-L/usr/lib/x86_64-linux-gnu -ltcl8.6 -ltk8.6'
+          make -j$(nproc)
+          make altinstall
+          
+          # Создаем симлинки для удобства
+          ln -s /usr/local/bin/python3.12 /usr/local/bin/python
+          ln -s /usr/local/bin/pip3.12 /usr/local/bin/pip
+
+      - name: Verify Python installation
+        run: |
+          python --version
+          python -c "import tkinter; print('tkinter OK:', tkinter.TkVersion)"
 
       - name: Install project and dependencies
         run: |
           python -m pip install --upgrade pip
           pip install ".[build]"
-
-      - name: Verify tkinter availability
-        run: python -c "import tkinter; print('tkinter OK:', tkinter.TkVersion)"
 
       - name: Build with PyInstaller
         run: |
@@ -110,7 +129,7 @@ jobs:
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
-          name: linux-build   
+          name: linux-build
           path: ScienceIndexer-linux.tar.gz
           if-no-files-found: error
 
