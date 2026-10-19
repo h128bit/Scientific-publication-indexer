@@ -50,21 +50,24 @@ jobs:
   # ============================================================
   build-linux:
     name: Build Linux
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest # Быстрый и стабильный раннер без очередей
+    container:
+      image: ubuntu:20.04  # Но сборка идет внутри старого окружения с нужным glibc!
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-
-      - name: Install system dependencies (tkinter + X11)
+      - name: Install system dependencies (Python 3.12 + tkinter + X11)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          apt-get update
+          # Добавляем репозиторий deadsnakes для Python 3.12 на Ubuntu 20.04
+          apt-get install -y software-properties-common
+          add-apt-repository -y ppa:deadsnakes/ppa
+          apt-get update
+          apt-get install -y \
+            python3.12 \
+            python3.12-venv \
+            python3.12-dev \
             python3-tk \
             tk \
             libx11-6 \
@@ -77,6 +80,12 @@ jobs:
             libxrandr2 \
             libxxf86vm1 \
             libxinerama1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
 
       - name: Install project and dependencies
         run: |
